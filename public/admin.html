@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Dashboard</h1>
+
+        <!-- User Creation Form -->
+        <h2>Create New User</h2>
+        <form id="create-user-form">
+            <input type="text" id="name" placeholder="Name" required>
+            <input type="text" id="zoneId" placeholder="Zone ID" required>
+            <input type="text" id="wardNo" placeholder="Ward No" required>
+            <input type="text" id="vehicleNo" placeholder="Vehicle No" required>
+            <button type="submit" class="btn">Create User</button>
+        </form>
+
+        <h2>Users List</h2>
+        <div id="users-list"></div>
+        <button id="fetch-users" class="btn">Refresh Users</button>
+
+        <!-- Live Location Updates -->
+        <h2>Live Location Updates</h2>
+        <div id="live-locations"></div>
+
+        <div class="navigation">
+            <a href="index.html">Go Back to Home</a>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // Function to create a user
+        document.getElementById('create-user-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('name').value;
+            const zoneId = document.getElementById('zoneId').value;
+            const wardNo = document.getElementById('wardNo').value;
+            const vehicleNo = document.getElementById('vehicleNo').value;
+
+            const response = await fetch('/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, zoneId, wardNo, vehicleNo })
+            });
+            const user = await response.json();
+            alert(`User ${user.name} created successfully!`);
+            fetchUsers(); // Refresh the list of users after creation
+        });
+
+        // Fetch and display users
+        async function fetchUsers() {
+            const response = await fetch('/users');
+            const users = await response.json();
+            const usersList = document.getElementById('users-list');
+            usersList.innerHTML = '';
+            users.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'user-entry';
+                userDiv.innerHTML = `
+                    <span>${user.name} (ID: ${user._id})</span>
+                    <button class="btn" onclick="startSharing('${user._id}')">Start Sharing</button>
+                    <button class="btn stop" onclick="stopSharing('${user._id}')">Stop Sharing</button>
+                    <button class="btn delete" onclick="deleteUser('${user._id}')">Delete</button>
+                `;
+                usersList.appendChild(userDiv);
+            });
+        }
+
+        document.getElementById('fetch-users').addEventListener('click', fetchUsers);
+
+        // Start sharing location
+        function startSharing(userId) {
+            socket.emit('start-sharing', userId);
+        }
+
+        // Stop sharing location
+        function stopSharing(userId) {
+            socket.emit('stop-sharing', userId);
+        }
+
+        // Delete user
+        async function deleteUser(userId) {
+            const response = await fetch(`/users/${userId}`, { method: 'DELETE' });
+            const result = await response.text();
+            alert(result);
+            fetchUsers(); // Refresh list after deletion
+        }
+
+        // Listen for live location updates
+        socket.on('location-update', ({ userId, location }) => {
+            const liveLocations = document.getElementById('live-locations');
+            let userDiv = document.getElementById(`location-${userId}`);
+            if (!userDiv) {
+                userDiv = document.createElement('div');
+                userDiv.id = `location-${userId}`;
+                liveLocations.appendChild(userDiv);
+            }
+            userDiv.textContent = `User ${userId} Location: Latitude ${location.latitude}, Longitude ${location.longitude}`;
+        });
+
+        fetchUsers(); // Initial fetch
+    </script>
+</body>
+</html>
+

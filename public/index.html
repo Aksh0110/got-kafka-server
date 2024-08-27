@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garbage Collection System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Garbage Collection System</h1>
+        <div class="user-management">
+            <input type="text" id="name" placeholder="Enter Name" />
+            <input type="text" id="zoneId" placeholder="Enter Zone ID" />
+            <input type="text" id="wardNo" placeholder="Enter Ward No" />
+            <input type="text" id="vehicleNo" placeholder="Enter Vehicle No" />
+            <button id="createUser" class="btn">Create User</button>
+        </div>
+        <div class="user-list">
+            <h2>Created Users</h2>
+            <ul id="userList"></ul>
+        </div>
+        <div class="button-container">
+            <button id="start" class="btn">Start Location Sharing</button>
+            <button id="stop" class="btn stop">Stop Location Sharing</button>
+        </div>
+        <div class="navigation">
+            <a href="logs.html">View Server Logs</a>
+            <a href="admin.html">Admin Dashboard</a>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentUserId;
+
+        document.getElementById('createUser').addEventListener('click', async () => {
+            const name = document.getElementById('name').value;
+            const zoneId = document.getElementById('zoneId').value;
+            const wardNo = document.getElementById('wardNo').value;
+            const vehicleNo = document.getElementById('vehicleNo').value;
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, zoneId, wardNo, vehicleNo })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                currentUserId = data.user.userId;
+                alert(`User ${currentUserId} created successfully!`);
+                addUserToList(data.user);
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        });
+
+        const addUserToList = (user) => {
+            const userList = document.getElementById('userList');
+            const listItem = document.createElement('li');
+            listItem.textContent = `User ID: ${user.userId}, Name: ${user.name}, Zone: ${user.zoneId}, Ward: ${user.wardNo}, Vehicle: ${user.vehicleNo}`;
+            userList.appendChild(listItem);
+        };
+
+        const loadUsers = async () => {
+            const response = await fetch('/api/users');
+            const users = await response.json();
+            users.forEach(addUserToList);
+        };
+
+        document.getElementById('start').addEventListener('click', () => {
+            if (currentUserId) {
+                socket.emit('start', currentUserId);
+            } else {
+                alert('Create a user first');
+            }
+        });
+
+        document.getElementById('stop').addEventListener('click', () => {
+            if (currentUserId) {
+                socket.emit('stop', currentUserId);
+            } else {
+                alert('Create a user first');
+            }
+        });
+
+        window.onload = loadUsers;
+    </script>
+</body>
+</html>
+
